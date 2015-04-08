@@ -44,7 +44,7 @@ def enable_service(conn, service='ceph'):
             [
                 'systemctl',
                 'enable',
-                '{service}'.format(service=service),
+                "%s.target" % (service),
             ]
         )
     else:
@@ -52,7 +52,7 @@ def enable_service(conn, service='ceph'):
             conn,
             [
                 'chkconfig',
-                '{service}'.format(service=service),
+                service,
                 'on',
             ]
         )
