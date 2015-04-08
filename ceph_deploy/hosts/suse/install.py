@@ -5,9 +5,34 @@ import logging
 LOG = logging.getLogger(__name__)
 
 
+def pkg_refresh(distro):
+    remoto.process.run(
+        distro.conn,
+        [
+            'zypper',
+            '--non-interactive',
+            '--gpg-auto-import-keys',
+            'refresh'
+            ],
+        )
+
+def pkg_install(distro, package):
+    remoto.process.run(
+        distro.conn,
+        [
+            'zypper',
+            '--non-interactive',
+            '--quiet',
+            'install',
+            package,
+            ],
+        )
+
+
 def install(distro, version_kind, version, adjust_repos, **kw):
     # note: when split packages for ceph land for Suse,
     # `kw['components']` will have those. Unused for now.
+
     release = distro.release
     machine = distro.machine_type
 
