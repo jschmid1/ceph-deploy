@@ -28,6 +28,21 @@ def pkg_install(distro, package):
             ],
         )
 
+def map_components(components):
+    # SUSE distributions don't offer the same granularity of packages as
+    # used by ceph-deploy, so we need to do some mapping.
+    packages = []
+
+    if (('ceph-osd' in components)
+     or ('ceph-mds' in components)
+     or ('ceph-mon' in components)):
+        packages.append('ceph')
+    if 'ceph-common' in components:
+        packages.append('ceph-common')
+    if 'ceph-radosgw' in components:
+        packages.append('ceph-radosgw')
+
+    return packages
 
 def install(distro, version_kind, version, adjust_repos, **kw):
     # note: when split packages for ceph land for SUSE,
