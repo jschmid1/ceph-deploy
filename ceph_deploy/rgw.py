@@ -474,6 +474,8 @@ def apache_setup(distro, **kwargs):
         LOG.info("Writing:%s" % (path_conf))
         distro.conn.remote_module.write_file(path_conf, content)
     content = template_radosgw_s3gw_fcgi.format(entity = entity)
+    if not distro.conn.remote_module.path_exists(apache_fcgi_d):
+        distro.conn.remote_module.safe_makedirs(apache_fcgi_d)
     scriptpath = "%s/%s" % (apache_fcgi_d,scriptName)
     if distro.conn.remote_module.path_exists(scriptpath):
         LOG.info("File exists Skipping:%s" % (scriptpath))
@@ -490,12 +492,16 @@ def apache_setup(distro, **kwargs):
 def apache_teardown_conf_d(distro):
     LOG.info("apache_conf_d=%s" % (apache_conf_d))
     #LOG.info("filelist=%s" % (str(", ".join(filelist))))
+    if not distro.conn.remote_module.path_exists(apache_conf_d):
+        return set([])
     return set(map( lambda m: apache_conf_d + "/" + m, dir_filter(distro.conn,apache_conf_d,"^ceph_radosgw_.*conf")))
 
 
 def apache_teardown_fcgi_d(distro):
     LOG.info("apache_fcgi_d=%s" % (apache_fcgi_d))
     #LOG.info("filelist=%s" % (str(", ".join(filelist))))
+    if not distro.conn.remote_module.path_exists(apache_fcgi_d):
+        return set([])
     return set(map( lambda m: apache_fcgi_d + "/" + m, dir_filter(distro.conn,apache_fcgi_d,"^s3gw_.*fcgi")))
 
 
@@ -690,8 +696,6 @@ def rgw_prepare(args, cfg):
             )
         installed.add(hostname)
 
-    print args.username
-
     # now we build cfg we will apply.
     model = apache_info_all(distro,
             username = args.username,
@@ -796,6 +800,12 @@ def rgw_prepare(args, cfg):
             continue
 
 
+        # Setup logging
+        log_file_path = cfg.get(entity,'log file')
+        log_file_dir = os.path.dirname(log_file_path)
+        if not distro.conn.remote_module.path_exists(log_file):
+            distro.conn.remote_module.safe_makedirs(log_file)
+        distro.conn.remote_module.chown(log_file, "wwwrun", "www")
         distro.conn.remote_module.write_keyring(keypath,string2write)
         distro.conn.remote_module.chmod(keypath, 0640)
         distro.conn.remote_module.chown(keypath, "root","www")
