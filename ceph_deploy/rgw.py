@@ -694,18 +694,19 @@ def rgw_prepare(args, cfg):
                 distro,
                 "ceph-radosgw"
             )
-        distro.pkg_install(
-                distro,
-                "apache2-mod_fastcgi",
-            )
+        if args.cgi == True:
+            distro.pkg_install(
+                    distro,
+                    "apache2-mod_fastcgi",
+                )
         installed.add(hostname)
-
-    # now we build cfg we will apply.
-    model = apache_info_all(distro,
-            username = args.username,
-            installed = installed,
-            entity = entity,
-            cfg = cfg)
+    if args.cgi == True:
+        # now we build cfg we will apply.
+        model = apache_info_all(distro,
+                username = args.username,
+                installed = installed,
+                entity = entity,
+                cfg = cfg)
 
     cfg_changed = False
     # now add keys
@@ -748,12 +749,12 @@ def rgw_prepare(args, cfg):
         except (ConfigParser.NoOptionError):
             cfg.set(entity, 'keyring', keyring)
             cfg_changed = True
-        try:
-            rgw_socket_path = cfg.get(entity,'rgw socket path')
-
-        except (ConfigParser.NoOptionError):
-            cfg.set(entity, 'rgw socket path', rgw_socket_path)
-            cfg_changed = True
+        if args.cgi == True:
+            try:
+                rgw_socket_path = cfg.get(entity,'rgw socket path')
+            except (ConfigParser.NoOptionError):
+                cfg.set(entity, 'rgw socket path', rgw_socket_path)
+                cfg_changed = True
         try:
             log_file = cfg.get(entity,'log file')
         except (ConfigParser.NoOptionError):
@@ -764,6 +765,13 @@ def rgw_prepare(args, cfg):
         except (ConfigParser.NoOptionError):
             cfg_changed = True
             cfg.set(entity, 'admin socket', admin_socket)
+        if args.civetweb == True:
+            try:
+                frount_end = cfg.get(entity,'rgw frontends')
+            except (ConfigParser.NoOptionError):
+                cfg_changed = True
+                cfg.set(entity, 'rgw frontends', "civetweb port=%s" % (map_entity2port[instance]))
+
         if not cfg.has_section(entity):
             cfg.add_section(entity)
             cfg_changed = True
@@ -813,12 +821,13 @@ def rgw_prepare(args, cfg):
         distro.conn.remote_module.write_keyring(keypath,string2write)
         distro.conn.remote_module.chmod(keypath, 0640)
         distro.conn.remote_module.chown(keypath, "root","www")
-        apache_setup(distro,
-            entity = entity,
-            socket = rgw_socket_path,
-            fqdn = map_entity2fqdn[entity],
-            port = map_entity2port[entity],
-            redirect = map_entity2redirect[entity])
+        if args.cgi == True:
+            apache_setup(distro,
+                entity = entity,
+                socket = rgw_socket_path,
+                fqdn = map_entity2fqdn[entity],
+                port = map_entity2port[entity],
+                redirect = map_entity2redirect[entity])
     if cfg_changed:
         rgw_cfg_save(args,cfg)
         config_push(args,push_hosts)
@@ -977,6 +986,15 @@ def rgw_delete(args, cfg):
 # cmd line
 
 def rgw(args):
+    if (args.civetweb == False) and (args.cgi == False):
+        args.civetweb = True
+    if args.cgi == True:
+        args.civetweb = False
+    if args.civetweb == True:
+        args.cgi = False
+
+
+    print args
     cfg = conf.ceph.load(args)
 
     if args.subcommand == 'list':
@@ -1071,7 +1089,11 @@ def make(parser):
         type=colon_separated,
         help='host and name of radosgw',
         )
-
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument('--cgi', action='store_true',
+                     help='rgw with fcgi')
+    group.add_argument('--civetweb', action='store_true',
+                     help='rgw with civetweb (default)')
     parser.set_defaults(
         func=rgw,
         )
