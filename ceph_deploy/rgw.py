@@ -694,6 +694,10 @@ def rgw_prepare(args, cfg):
                 distro,
                 "ceph-radosgw"
             )
+        distro.pkg_install(
+                distro,
+                "apache2-mod_fastcgi",
+            )
         installed.add(hostname)
 
     # now we build cfg we will apply.
