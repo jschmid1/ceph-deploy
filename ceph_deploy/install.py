@@ -48,8 +48,7 @@ def detect_components(args, distro):
     # when no packages should be installed, just the repo files, so check for
     # that here and return an empty list (which is equivalent to say 'no
     # packages should be installed')
-    if args.repo:
-        return []
+
 
     flags = {
         'install_osd': 'ceph-osd',
@@ -66,25 +65,17 @@ def detect_components(args, distro):
         # different naming convention for deb than rpm for radosgw
         flags['install_rgw'] = 'radosgw'
 
-    if args.install_all:
-        return defaults
-    else:
-        components = []
-        for k, v in flags.items():
-            if getattr(args, k, False):
-                components.append(v)
-        # if we have some components selected from flags then return that,
-        # otherwise return defaults because no flags and no `--repo` means we
-        # should get all of them by default
-        return components or defaults
+    components = []
+    for k, v in flags.items():
+        if getattr(args, k, False):
+            components.append(v)
+    # if we have some components selected from flags then return that,
+    # otherwise return defaults because no flags and no `--repo` means we
+    # should get all of them by default
+    return components or defaults
 
 
 def install(args):
-    args = sanitize_args(args)
-
-    if args.repo:
-        return install_repo(args)
-
     if args.version_kind == 'stable':
         version = args.release
     else:
