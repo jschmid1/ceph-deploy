@@ -769,7 +769,7 @@ def rgw_prepare(args, cfg):
                 frount_end = cfg.get(entity,'rgw frontends')
             except (ConfigParser.NoOptionError):
                 cfg_changed = True
-                cfg.set(entity, 'rgw frontends', "civetweb port=%s" % (map_entity2port[instance]))
+                cfg.set(entity, 'rgw frontends', "civetweb port=%s" % (map_entity2port[entity]))
 
         if not cfg.has_section(entity):
             cfg.add_section(entity)
