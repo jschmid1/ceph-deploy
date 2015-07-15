@@ -749,12 +749,11 @@ def rgw_prepare(args, cfg):
         except (ConfigParser.NoOptionError):
             cfg.set(entity, 'keyring', keyring)
             cfg_changed = True
-        if args.cgi == True:
-            try:
-                rgw_socket_path = cfg.get(entity,'rgw socket path')
-            except (ConfigParser.NoOptionError):
-                cfg.set(entity, 'rgw socket path', rgw_socket_path)
-                cfg_changed = True
+        try:
+            rgw_socket_path = cfg.get(entity,'rgw socket path')
+        except (ConfigParser.NoOptionError):
+            cfg.set(entity, 'rgw socket path', rgw_socket_path)
+            cfg_changed = True
         try:
             log_file = cfg.get(entity,'log file')
         except (ConfigParser.NoOptionError):
