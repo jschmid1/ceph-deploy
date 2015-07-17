@@ -815,9 +815,9 @@ def rgw_prepare(args, cfg):
         # Setup logging
         log_file_path = cfg.get(entity,'log file')
         log_file_dir = os.path.dirname(log_file_path)
-        if not distro.conn.remote_module.path_exists(log_file):
-            distro.conn.remote_module.safe_makedirs(log_file)
-        distro.conn.remote_module.chown(log_file, "wwwrun", "www")
+        if not distro.conn.remote_module.path_exists(log_file_dir):
+            distro.conn.remote_module.safe_makedirs(log_file_dir)
+        distro.conn.remote_module.chown(log_file_dir, "wwwrun", "www")
         distro.conn.remote_module.write_keyring(keypath,string2write)
         distro.conn.remote_module.chmod(keypath, 0640)
         distro.conn.remote_module.chown(keypath, "root","www")
