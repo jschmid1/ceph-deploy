@@ -645,7 +645,7 @@ def rgw_prepare(args, cfg):
         map_entity2fqdn[instance] = fqdn
         if port == None:
             port = 7480
-            args.cgi == True:
+            if args.cgi == True:
                 port = 80
             LOG.info("%s:Defaulting port to:%s" % (instance_name, port))
         try:
