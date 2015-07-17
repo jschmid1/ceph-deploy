@@ -641,18 +641,17 @@ def rgw_prepare(args, cfg):
         push_hosts.add(hostname)
         map_entity2host[instance] = hostname
         if fqdn == None:
-            port = 80
             LOG.info("%s:Not setting virtual host fqdn" % (instance_name))
-
         map_entity2fqdn[instance] = fqdn
         if port == None:
-            port = 80
+            port = 7480
+            if args.cgi == True:
+                port = 80
             LOG.info("%s:Defaulting port to:%s" % (instance_name, port))
         try:
             portNum = int(port)
         except TypeError:
-            portNum = 80
-            LOG.warning("%s:Defaulting port to:%s" % (instance_name, portNum))
+            LOG.warning("%s:Port was not a number defaulting port to:%s" % (instance_name, portNum))
         map_entity2port[instance] = portNum
         if (redirect == None) or (len(redirect) == 0):
             redirect = "^/(.*)"
