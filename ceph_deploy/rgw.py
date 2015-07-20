@@ -22,8 +22,9 @@ LOG = logging.getLogger(__name__)
 
 ## Templates
 
-template_apache2_rgw_conf = """FastCgiExternalServer /srv/www/radosgw/{scriptName} -socket {socket}
-
+template_apache2_rgw_conf = """# Created by ceph deploy
+Listen {port}
+FastCgiExternalServer /srv/www/radosgw/{scriptName} -socket {socket}
 
 <VirtualHost *:{port}>
 
