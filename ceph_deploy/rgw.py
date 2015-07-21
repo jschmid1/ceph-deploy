@@ -873,14 +873,29 @@ def rgw_activate(args, cfg):
         #init.init_type = distro.choose_init()
         entity_name = rgw_entity2name(entity)
         if args.cgi == True:
+            running = None
             try:
-                init.start("apache")
+                running = init.status("apache")
             except init_exception_service:
-                LOG.error("Failed starting apache")
+                LOG.error("Failed getting apache status for %s" % (entity))
+                continue
+            if running == True:
+                try:
+                    init.restart("apache")
+                except init_exception_service:
+                    LOG.error("Failed starting apache for %s" % (entity))
+                    continue
+            if running == False:
+                try:
+                    init.start("apache")
+                except init_exception_service:
+                    LOG.error("Failed starting apache for %s" % (entity))
+                    continue
             try:
                 init.enable("apache")
             except init_exception_service:
-                LOG.error("Failed enabling apache")
+                LOG.error("Failed enabling apache for %s" % (entity))
+                continue
         try:
             init.start("ceph-radosgw",[entity_name])
         except init_exception_service:
