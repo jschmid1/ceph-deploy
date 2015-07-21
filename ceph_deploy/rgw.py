@@ -963,14 +963,21 @@ def rgw_delete(args, cfg):
             init.disable("ceph-radosgw",[entity_name])
         except init_exception_service:
             LOG.error("Failed disabling ceph-radosgw %s" % (entity_name))
+        running = None
         try:
-            init.stop("apache")
+            running = init.status("apache")
         except init_exception_service:
-            LOG.error("Failed stopping apache")
-        try:
-            init.disable("apache")
-        except init_exception_service:
-            LOG.error("Failed disabling apache")
+            LOG.error("Failed getting apache status for %s" % (entity))
+            continue
+        if running == True:
+            try:
+                init.stop("apache")
+            except init_exception_service:
+                LOG.error("Failed stopping apache")
+            try:
+                init.disable("apache")
+            except init_exception_service:
+                LOG.error("Failed disabling apache")
         keypath = cfg.get(entity,'keyring')
         if distro.conn.remote_module.path_exists(keyring):
             distro.conn.remote_module.unlink(keyring)
