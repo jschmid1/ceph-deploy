@@ -186,17 +186,37 @@ def catch_osd_errors(conn, logger, args):
     if nearfull:
         logger.warning('OSDs are near full!')
 
+def detect_disk_dir(
+        disk):
+    path_norm = os.path.normpath(disk)
+    path_test = os.path.commonprefix([path_norm, '/dev/'])
+    if path_test == '/dev/':
+        return False
+    return True
+
+def prepare_disk_dir(
+        conn,
+        disk):
+    if conn.remote_module.path_exists(disk):
+        return
+    return remoto.process.run(
+        conn,
+        [
+            'mkdir',
+            disk
+        ],
+    )
 
 def prepare_disk(
         conn,
         cluster,
         disk,
+        disk_is_dir,
         journal,
         activate_prepared_disk,
         zap,
         fs_type,
-        dmcrypt,
-        dmcrypt_dir):
+        dmcrypt):
     """
     Run on osd node, prepares a data disk for use.
     """
@@ -207,16 +227,22 @@ def prepare_disk(
         ]
     if zap:
         args.append('--zap-disk')
+    if fs_type:
+        if fs_type not in ('btrfs', 'ext4', 'xfs'):
+            raise argparse.ArgumentTypeError(
+                "FS_TYPE must be one of 'btrfs', 'ext4' or 'xfs'")
+        args.extend(['--fs-type', fs_type])
     if dmcrypt:
         args.append('--dmcrypt')
-        if dmcrypt_dir is not None:
-            args.append('--dmcrypt-key-dir')
-            args.append(dmcrypt_dir)
+    data_validation = '--data-dev'
+    if disk_is_dir:
+        data_validation = '--data-dir'
     args.extend([
         '--cluster',
         cluster,
         '--fs-type',
         fs_type,
+        data_validation,
         '--',
         disk,
     ])
@@ -290,6 +316,7 @@ def prepare(args, cfg, activate_prepared_disk):
             if disk is None:
                 raise exc.NeedDiskError(hostname)
 
+            disk_is_dir = detect_disk_dir(disk)
             distro = hosts.get(hostname, username=args.username)
             LOG.info(
                 'Distro info: %s %s %s',
@@ -315,16 +342,21 @@ def prepare(args, cfg, activate_prepared_disk):
             LOG.debug('Preparing host %s disk %s journal %s activate %s',
                       hostname, disk, journal, activate_prepared_disk)
 
+            if disk_is_dir:
+                prepare_disk_dir(
+                    distro.conn,
+                    disk=disk
+                )
             prepare_disk(
                 distro.conn,
                 cluster=args.cluster,
                 disk=disk,
+                disk_is_dir=disk_is_dir,
                 journal=journal,
                 activate_prepared_disk=activate_prepared_disk,
                 zap=args.zap_disk,
                 fs_type=args.fs_type,
-                dmcrypt=args.dmcrypt,
-                dmcrypt_dir=args.dmcrypt_key_dir,
+                dmcrypt=args.dmcrypt
             )
 
             # give the OSD a few seconds to start
@@ -381,6 +413,10 @@ def activate(args, cfg):
 
         if distro.is_el:
             system.enable_service(distro.conn)
+
+        if distro.distro == 'suse':
+            system.systemd_defaults_clustername(distro.conn, args.cluster)
+            system.enable_service(distro.conn, 'ceph')
 
         distro.conn.exit()
 
@@ -653,106 +689,39 @@ def make(parser):
     parser.formatter_class = argparse.RawDescriptionHelpFormatter
     parser.description = sub_command_help
 
-    osd_parser = parser.add_subparsers(dest='subcommand')
-
-    osd_list = osd_parser.add_parser(
-        'list',
-        help='List OSD info from remote host(s)'
+    parser.add_argument(
+        'subcommand',
+        metavar='SUBCOMMAND',
+        choices=[
+            'list',
+            'create',
+            'prepare',
+            'activate',
+            ],
+        help='list, create (prepare+activate), prepare, or activate',
         )
-    osd_list.add_argument(
-        'disk',
-        nargs='+',
-        metavar='HOST:DISK[:JOURNAL]',
-        type=colon_separated,
-        help='remote host to list OSDs from'
-        )
-
-    osd_create = osd_parser.add_parser(
-        'create',
-        help='Create new Ceph OSD daemon by preparing and activating disk'
-        )
-    osd_create.add_argument(
-        '--zap-disk',
-        action='store_true', default=None,
-        help='destroy existing partition table and content for DISK',
-        )
-    osd_create.add_argument(
-        '--fs-type',
-        metavar='FS_TYPE',
-        choices=['xfs',
-                 'ext4',
-                 'btrfs'
-                 ],
-        default='xfs',
-        help='filesystem to use to format DISK (xfs, btrfs, or ext4)',
-        )
-    osd_create.add_argument(
-        '--dmcrypt',
-        action='store_true', default=None,
-        help='use dm-crypt on DISK',
-        )
-    osd_create.add_argument(
-        '--dmcrypt-key-dir',
-        metavar='KEYDIR',
-        default='/etc/ceph/dmcrypt-keys',
-        help='directory where dm-crypt keys are stored',
-        )
-    osd_create.add_argument(
+    parser.add_argument(
         'disk',
         nargs='+',
         metavar='HOST:DISK[:JOURNAL]',
         type=colon_separated,
         help='host and disk to prepare',
         )
-
-    osd_prepare = osd_parser.add_parser(
-        'prepare',
-        help='Prepare a disk for use as Ceph OSD by formatting/partitioning disk'
-        )
-    osd_prepare.add_argument(
+    parser.add_argument(
         '--zap-disk',
         action='store_true', default=None,
         help='destroy existing partition table and content for DISK',
         )
-    osd_prepare.add_argument(
+    parser.add_argument(
         '--fs-type',
         metavar='FS_TYPE',
-        choices=['xfs',
-                 'ext4',
-                 'btrfs'
-                 ],
         default='xfs',
-        help='filesystem to use to format DISK (xfs, btrfs, or ext4)',
+        help='filesystem to use to format DISK (xfs, btrfs or ext4)',
         )
-    osd_prepare.add_argument(
+    parser.add_argument(
         '--dmcrypt',
         action='store_true', default=None,
         help='use dm-crypt on DISK',
-        )
-    osd_prepare.add_argument(
-        '--dmcrypt-key-dir',
-        metavar='KEYDIR',
-        default='/etc/ceph/dmcrypt-keys',
-        help='directory where dm-crypt keys are stored',
-        )
-    osd_prepare.add_argument(
-        'disk',
-        nargs='+',
-        metavar='HOST:DISK[:JOURNAL]',
-        type=colon_separated,
-        help='host and disk to prepare',
-        )
-
-    osd_activate = osd_parser.add_parser(
-        'activate',
-        help='Start (activate) Ceph OSD from disk that was previously prepared'
-        )
-    osd_activate.add_argument(
-        'disk',
-        nargs='+',
-        metavar='HOST:DISK[:JOURNAL]',
-        type=colon_separated,
-        help='host and disk to activate',
         )
     parser.set_defaults(
         func=osd,
@@ -764,80 +733,39 @@ def make_disk(parser):
     """
     Manage disks on a remote host.
     """
-    disk_parser = parser.add_subparsers(dest='subcommand')
-
-    disk_zap = disk_parser.add_parser(
-        'zap',
-        help='destroy existing partition table and content for DISK',
+    parser.add_argument(
+        'subcommand',
+        metavar='SUBCOMMAND',
+        choices=[
+            'list',
+            'prepare',
+            'activate',
+            'zap',
+            ],
+        help='list, prepare, activate, zap',
         )
-    disk_zap.add_argument(
+    parser.add_argument(
         'disk',
         nargs='+',
         metavar='HOST:DISK',
         type=colon_separated,
-        help='host and disk'
+        help='host and disk (or path)',
         )
-
-    disk_list = disk_parser.add_parser(
-        'list',
-        help='List disk info from remote host(s)'
-        )
-    disk_list.add_argument(
-        'disk',
-        nargs='+',
-        metavar='HOST:DISK',
-        type=colon_separated,
-        help='remote host to list OSDs from'
-        )
-
-    disk_prepare = disk_parser.add_parser(
-        'prepare',
-        help='Prepare a disk for use as Ceph OSD by formatting/partitioning disk'
-        )
-    disk_prepare.add_argument(
+    parser.add_argument(
         '--zap-disk',
         action='store_true', default=None,
         help='destroy existing partition table and content for DISK',
         )
-    disk_prepare.add_argument(
+    parser.add_argument(
         '--fs-type',
         metavar='FS_TYPE',
-        choices=['xfs',
-                 'ext4',
-                 'btrfs'
-                 ],
         default='xfs',
-        help='filesystem to use to format DISK (xfs, btrfs, or ext4)',
+        help='filesystem to use to format DISK (xfs, btrfs or ext4)'
         )
-    disk_prepare.add_argument(
+    parser.add_argument(
         '--dmcrypt',
         action='store_true', default=None,
         help='use dm-crypt on DISK',
-        )
-    disk_prepare.add_argument(
-        '--dmcrypt-key-dir',
-        metavar='KEYDIR',
-        default='/etc/ceph/dmcrypt-keys',
-        help='directory where dm-crypt keys are stored',
-        )
-    disk_prepare.add_argument(
-        'disk',
-        nargs='+',
-        metavar='HOST:DISK',
-        type=colon_separated,
-        help='host and disk to prepare',
-        )
-
-    disk_activate = disk_parser.add_parser(
-        'activate',
-        help='Start (activate) Ceph OSD from disk that was previously prepared'
-        )
-    disk_activate.add_argument(
-        'disk',
-        nargs='+',
-        metavar='HOST:DISK',
-        type=colon_separated,
-        help='host and disk to activate',
         )
     parser.set_defaults(
         func=disk,
