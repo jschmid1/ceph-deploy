@@ -107,7 +107,8 @@ def rgw_key_gen(conn, keypath, name):
         for line in stdout:
             conn.logger.error(line)
         conn.logger.error('exit code from command was: %s' % rc)
-        raise RuntimeError('Could not generate key')
+        LOG.error('Could not generate key')
+        return False
     stdout, stderr, rc = remoto.process.check(
         conn,
         [
@@ -129,7 +130,8 @@ def rgw_key_gen(conn, keypath, name):
         for line in stdout:
             conn.logger.error(line)
         conn.logger.error('exit code from command was: %s' % rc)
-        raise RuntimeError('Could not set capabilities')
+        LOG.error('Could not set capabilities')
+        return False
     stdout, stderr, rc = remoto.process.check(
         conn,
         [
@@ -147,7 +149,9 @@ def rgw_key_gen(conn, keypath, name):
         for line in stdout:
             conn.logger.error(line)
         conn.logger.error('exit code from command was: %s' % rc)
-        raise RuntimeError('Could not add auth info for %s' % name)
+        LOG.error('Could not add auth info for %s' % name)
+        return False
+    return True
 
 def rgw_key_list(conn):
     stdout, stderr, rc = remoto.process.check(
@@ -161,9 +165,11 @@ def rgw_key_list(conn):
             ],
         )
     if rc != 0:
-        LOG.debug("stdout=%s" % (stdout))
-        LOG.debug("stderr=%s" % (stderr))
-        LOG.debug("rc=%s" % (rc))
+        for line in stderr:
+            conn.logger.error(line)
+        for line in stdout:
+            conn.logger.error(line)
+        conn.logger.error("rc=%s" % (rc))
         return None
     auth = json.loads("".join(stdout).strip())
     output = {}
@@ -292,9 +298,11 @@ def pool_list(conn):
             ],
         )
     if rc != 0:
-        LOG.debug("stdout=%s" % (cleanedoutput))
-        LOG.debug("stderr=%s" % (stderr))
-        LOG.debug("rc=%s" % (rc))
+        for line in stderr:
+            conn.logger.error(line)
+        for line in stdout:
+            conn.logger.error(line)
+        conn.logger.error("rc=%s" % (rc))
         return None
     auth = json.loads("".join(stdout).strip())
     return auth
@@ -312,10 +320,13 @@ def pool_add(conn, name, number):
             ],
         )
     if rc != 0:
-        LOG.debug("stdout=%s" % (cleanedoutput))
-        LOG.debug("stderr=%s" % (stderr))
-        LOG.debug("rc=%s" % (rc))
-        return None
+        for line in stderr:
+            conn.logger.error(line)
+        for line in stdout:
+            conn.logger.error(line)
+        conn.logger.error("rc=%s" % (rc))
+        return False
+    return True
 
 def pool_del(conn, name):
     stdout, stderr, rc = remoto.process.check(
@@ -331,10 +342,13 @@ def pool_del(conn, name):
             ],
         )
     if rc != 0:
-        LOG.debug("stdout=%s" % (cleanedoutput))
-        LOG.debug("stderr=%s" % (stderr))
-        LOG.debug("rc=%s" % (rc))
-        return None
+        for line in stderr:
+            conn.logger.error(line)
+        for line in stdout:
+            conn.logger.error(line)
+        conn.logger.error("rc=%s" % (rc))
+        return False
+    return True
 
 
 # helper functions
@@ -352,6 +366,9 @@ def rgw_pools_create(conn):
             ".users.uid"
         ])
     allpools = pool_list(conn)
+    if allpools == None:
+        LOG.error("Failed to list available pools")
+        return False
     foundnames = set()
     foundnumbers = set()
     for pool in allpools:
@@ -360,12 +377,16 @@ def rgw_pools_create(conn):
         foundnames.add(name)
         foundnumbers.add(number)
     counter = 0
+    rc = True
     for name in requiredPools.difference(foundnames):
         while counter in foundnumbers:
             counter = counter + 1
         foundnumbers.add(counter)
-        pool_add(conn, name, counter)
-
+        tmp_rc = pool_add(conn, name, counter)
+        if not tmp_rc:
+            LOG.error("Failed to add pool:%s" % (name))
+            rc = False
+    return True
 
 
 # helper functions : apache
@@ -659,27 +680,23 @@ def rgw_prepare(args, cfg):
             LOG.info("%s:Defaulting redirect to:%s" % (instance_name, redirect))
         map_entity2redirect[instance] = redirect
     # now we use a mon to remove auth enities
-    auth = None
+    pools_setup = False
     for host_mon in monhosts:
         try:
             distro = hosts.get(host_mon, username=args.username)
         except:
             # try next host
             continue
-        auth = rgw_key_list(distro.conn)
-        if auth == None:
-            LOG.warning("Could not establish the auth on host:%s" % (host_mon))
-            continue
-        rgw_pools_create(distro.conn)
-        # because we dont want to do this on each mon node
-        break
-    if auth == None:
-        raise SystemExit('Failed to get auth details')
+        if rgw_pools_create(distro.conn):
+            pools_setup = True
+            # because we dont want to do this on each mon node
+            break
+        LOG.info("Failed to setup pools onhost:%s" % (host_mon))
+    if not pools_setup:
+        raise SystemExit('Failed to setup pools')
     # we now know which hosts are present and missing.
     present_cfg = prepare_wanted.intersection(config.keys())
     missing_cfg = prepare_wanted.difference(config.keys())
-    present_auth = prepare_wanted.intersection(auth.keys())
-    missing_auth = prepare_wanted.difference(auth.keys())
     failedhosts = set()
     for entity in prepare_wanted:
         hostname = map_entity2host.get(entity)
@@ -783,6 +800,7 @@ def rgw_prepare(args, cfg):
 
     # Now we need to make the keys.
     auth = None
+    missing_auth = set()
     for host_mon in monhosts:
         # We need to create keys on a mon node.
         try:
@@ -790,19 +808,34 @@ def rgw_prepare(args, cfg):
         except:
             # try next host
             continue
-        for entity in missing_auth:
-            keypath = cfg.get(entity,'keyring')
-            rgw_key_gen(distro.conn, keypath, entity)
         auth = rgw_key_list(distro.conn)
         if auth == None:
             LOG.warning("Could not list the keys on host:%s" % (host_mon))
             continue
+        missing_auth = prepare_wanted.difference(auth.keys())
+        for entity in missing_auth:
+            keypath = cfg.get(entity,'keyring')
+            if not rgw_key_gen(distro.conn, keypath, entity):
+                LOG.warning("Could not add key using host '%s' for entitiy '%s'" % (host_mon,entity))
+                continue
         # we only need to do this on one host
+        auth = rgw_key_list(distro.conn)
+        if auth == None:
+            LOG.warning("Could not list the keys on host:%s" % (host_mon))
+            continue
+        missing_auth = prepare_wanted.difference(auth.keys())
+        if len(missing_auth) > 0:
+            continue
         break
     if auth == None:
         raise SystemExit('Failed to get auth details')
+
     present_auth = prepare_wanted.intersection(auth.keys())
     missing_auth = prepare_wanted.difference(auth.keys())
+    if len(missing_auth) > 0:
+        for missing in missing_auth:
+            LOG.error("Failed to add key for :%s" % (missing))
+        raise SystemExit('Failed to get keys')
 
     for entity in present_auth:
         keypath = cfg.get(entity,'keyring')
