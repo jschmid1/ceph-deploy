@@ -131,7 +131,8 @@ def install(args):
             distro,
             args.version_kind,
             version,
-            args.adjust_repos
+            args.adjust_repos,
+            components=components
         )
         # Check the ceph version we just installed
         hosts.common.ceph_version(distro.conn)
