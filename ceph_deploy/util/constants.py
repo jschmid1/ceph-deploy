@@ -26,5 +26,5 @@ default_components = namedtuple('DefaultComponents', ['rpm', 'deb'])
 
 # the difference here is because RPMs currently name the radosgw differently than DEBs.
 # TODO: This needs to get unified once the packaging naming gets consistent
-default_components.rpm = tuple(_base_components + ['ceph-radosgw'])
+default_components.rpm = tuple(_base_components)
 default_components.deb = tuple(_base_components + ['radosgw'])
