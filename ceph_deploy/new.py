@@ -196,6 +196,9 @@ def new(args):
     if args.dmcrypt_key_server:
         cfg.set('global', 'dmcrypt key server', args.dmcrypt_key_server)
 
+    if args.key_store_service:
+        cfg.set('global', 'key store service', args.key_store_service)
+
     path = '{name}.conf'.format(
         name=args.cluster,
         )
