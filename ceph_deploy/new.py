@@ -279,7 +279,12 @@ def make(parser):
 
     parser.add_argument(
         '--dmcrypt-key-server',
-        help='the IP address of central FTP key server for dmcrypt-enabled storage devices',
+        help='the IP address of central key server for dmcrypt-enabled storage devices',
+    )
+
+    parser.add_argument(
+        '--key-store-service',
+        help='the service which will be used to transfer the dmcrypt-keys',
     )
 
     parser.set_defaults(
