@@ -193,6 +193,12 @@ def new(args):
     # http://tracker.newdream.net/issues/3138
     cfg.set('global', 'filestore xattr use omap', 'true')
 
+    if args.dmcrypt_key_server:
+        cfg.set('global', 'dmcrypt key server', args.dmcrypt_key_server)
+
+    if args.key_store_service:
+        cfg.set('global', 'key store service', args.key_store_service)
+
     path = '{name}.conf'.format(
         name=args.cluster,
         )
@@ -272,6 +278,16 @@ def make(parser):
         '--public-network',
         help='specify the public network for a cluster',
         type=arg_validators.Subnet(),
+    )
+
+    parser.add_argument(
+        '--dmcrypt-key-server',
+        help='the IP address of central key server for dmcrypt-enabled storage devices',
+    )
+
+    parser.add_argument(
+        '--key-store-service',
+        help='the service which will be used to transfer the dmcrypt-keys',
     )
 
     parser.set_defaults(
