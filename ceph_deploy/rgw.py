@@ -18,6 +18,10 @@ from ceph_deploy.util import constants, system
 from ceph_deploy.lib import remoto
 from ceph_deploy.util.services import init_system, init_exception_service
 import ceph_deploy.hosts.remotes as remotes
+
+from ceph_deploy.util import arg_validators
+
+
 LOG = logging.getLogger(__name__)
 
 ## Templates
@@ -1111,12 +1115,24 @@ def colon_separated(s):
             fqdn = split_input[2]
     if split_input_len > 3:
         if len(split_input[3]) > 0:
-            port = split_input[3]
+            try:
+                port = int(split_input[3])
+            except ValueError:
+                raise argparse.ArgumentTypeError('port must be an integer')
     if split_input_len > 4:
         if len(split_input[4]) > 0:
             redirect = split_input[4]
     if split_input_len > 5:
         raise argparse.ArgumentTypeError('must be in form host[:instance][:fqdn][:port][:redirect]')
+    if host != None:
+        arg_valid_hostname = arg_validators.Hostname()
+        arg_valid_hostname(host)
+    if instance != None:
+        arg_valid_safename = arg_validators.SafeName()
+        arg_valid_safename(instance)
+    if fqdn != None:
+        arg_valid_hostname = arg_validators.Hostname()
+        arg_valid_hostname(fqdn)
     return (host, instance, fqdn, port, redirect)
 
 
