@@ -3,6 +3,30 @@ import argparse
 import re
 
 
+class SafeName(object):
+    def __init__(self, statement=None):
+        self.statement = statement
+        if not self.statement:
+            self.statement = "must be be only alphanumeric or [.+-_]"
+    def is_safe_name_char(self,c):
+        # Alpha numeric chacters and +.
+        v = ord(c)
+        if v in [95,45,46,43]:
+            return True
+        if (90 < v) and (v < 97):
+            return False
+        if (47 < v) and (v < 58):
+            return True
+        if (64 < v) and (v < 123):
+            return True
+        return False
+
+    def __call__(self, string):
+        for c in string:
+            if not self.is_safe_name_char(c):
+                raise argparse.ArgumentError(None, self.statement + ":" + c)
+        return string
+
 class RegexMatch(object):
     """
     Performs regular expression match on value.
