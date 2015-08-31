@@ -6,6 +6,138 @@ from pytest import raises
 from ceph_deploy.util import arg_validators
 
 
+class TestIsAscii(object):
+    def test_valid_str(self):
+        sn = arg_validators.SafeName()
+        print dir(sn)
+        test_val = "ascii"
+        ret = sn(test_val)
+        assert (ret == test_val)
+        test_val = "0"
+        ret = sn(test_val)
+        assert (ret == test_val)
+        test_val = "9"
+        ret = sn(test_val)
+        assert (ret == test_val)
+        test_val = "a"
+        ret = sn(test_val)
+        assert (ret == test_val)
+        test_val = "z"
+        ret = sn(test_val)
+        assert (ret == test_val)
+        test_val = "A"
+        ret = sn(test_val)
+        assert (ret == test_val)
+        test_val = "Z"
+        ret = sn(test_val)
+        assert (ret == test_val)
+        test_val = "."
+        ret = sn(test_val)
+        assert (ret == test_val)
+        test_val = "-"
+        ret = sn(test_val)
+        assert (ret == test_val)
+        test_val = "_"
+        ret = sn(test_val)
+        assert (ret == test_val)
+        test_val = "+"
+        ret = sn(test_val)
+        assert (ret == test_val)
+
+    def test_valid_unicode(self):
+        sn = arg_validators.SafeName()
+        test_val = u"ascii"
+        ret = sn(test_val)
+        assert (ret == test_val)
+
+    def test_invalid_unicode(self):
+        sn = arg_validators.SafeName()
+        test_val = unichr(233)
+        except_ArgumentError = False
+        try:
+            ret = sn(test_val)
+
+        except ArgumentError:
+            except_ArgumentError = True
+        assert (except_ArgumentError == True)
+
+
+    def test_range_valid_unicode(self):
+        sn = arg_validators.SafeName()
+        test_prefix = u"ascii"
+        for i in range(48, 57):
+            test_val = unichr(i)
+            ret = sn(test_val)
+            assert (ret == test_val)
+        for i in range(65, 90):
+            test_val = unichr(i)
+            ret = sn(test_val)
+            assert (ret == test_val)
+        for i in range(97, 122):
+            test_val = unichr(i)
+            ret = sn(test_val)
+            assert (ret == test_val)
+        for i in [95]:
+            test_val = unichr(i)
+            ret = sn(test_val)
+            assert (ret == test_val)
+
+    def test_valid_special(self):
+        sn = arg_validators.SafeName()
+        for i in [95,45,46,43]:
+            test_val = unichr(i)
+            ret = sn(test_val)
+            if ret == False:
+                print "%s=%s" % (i,unichr(i))
+            assert (ret == test_val)
+
+
+    def test_range_invalid_unicode_high(self):
+        sn = arg_validators.SafeName()
+        test_prefix = u"ascii"
+        for i in range(123, 2000):
+            test_val = test_prefix + unichr(i)
+            except_ArgumentError = False
+            try:
+                ret = sn(test_val)
+            except ArgumentError:
+                except_ArgumentError = True
+            assert (except_ArgumentError == True)
+        for i in range(0, 42):
+            test_val = test_prefix + unichr(i)
+            except_ArgumentError = False
+            try:
+                ret = sn(test_val)
+            except ArgumentError:
+                except_ArgumentError = True
+            assert (except_ArgumentError == True)
+        for i in range(58, 64):
+            test_val = test_prefix + unichr(i)
+            except_ArgumentError = False
+            try:
+                ret = sn(test_val)
+            except ArgumentError:
+                except_ArgumentError = True
+            assert (except_ArgumentError == True)
+        for i in range(91, 94):
+            test_val = test_prefix + unichr(i)
+            except_ArgumentError = False
+            try:
+                ret = sn(test_val)
+            except ArgumentError:
+                except_ArgumentError = True
+            assert (except_ArgumentError == True)
+
+        for i in [96]:
+            test_val = test_prefix + unichr(i)
+            except_ArgumentError = False
+            try:
+                ret = sn(test_val)
+            except ArgumentError:
+                except_ArgumentError = True
+            assert (except_ArgumentError == True)
+
+
 class TestRegexMatch(object):
 
     def test_match_raises(self):
