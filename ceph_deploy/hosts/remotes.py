@@ -389,6 +389,17 @@ def sysconfig_write(path, key, new_value):
                 continue
             f.write("#%s%s" % (line,newline))
 
+def port_used(port_num):
+    is_used = False
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    try:
+        sock.bind(('', port_num))
+    except socket.error,e:
+        if e.errno == 98:
+            is_used = True
+    sock.close()
+    return is_used
+
 def enable_yum_priority_obsoletes(path="/etc/yum/pluginconf.d/priorities.conf"):
     """Configure Yum priorities to include obsoletes"""
     config = ConfigParser.ConfigParser()
