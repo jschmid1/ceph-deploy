@@ -727,6 +727,11 @@ def rgw_prepare(args, cfg):
         except:
             LOG.error("failed to connect to '%s'" % (hostname))
             raise SystemExit('Failed to setup radosgw')
+        remote_port = map_entity2port[entity]
+        port_used = distro.conn.remote_module.port_used(remote_port)
+        if port_used:
+            LOG.error("Port '%s' on host '%s' is used" % (remote_port, hostname))
+            raise SystemExit('Failed to setup radosgw')
         distro.pkg_refresh(distro)
         distro.pkg_install(
                 distro,
