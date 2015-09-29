@@ -669,11 +669,14 @@ def colon_separated(s):
         raise argparse.ArgumentTypeError(str(err) + ' following "' + first_line_of_error + '"')
     splitline_len = len(splitline)
     if splitline_len == 3:
-        (host, disk, journal) = splitline
+        host = splitline[0]
+        disk = splitline[1]
+        journal = splitline[2]
     elif splitline_len == 2:
-        (host, disk) = splitline
+        host = splitline[0]
+        disk = splitline[1]
     elif splitline_len == 1:
-        (host) = splitline
+        host = splitline[0]
     else:
         raise argparse.ArgumentTypeError('must be in form HOST:DISK[:JOURNAL]')
 
