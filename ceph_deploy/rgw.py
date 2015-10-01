@@ -382,7 +382,7 @@ def rgw_pools_create(conn):
         foundnumbers.add(number)
     rc = True
     for name in requiredPools.difference(foundnames):
-        tmp_rc = pool_add(conn, name, 128)
+        tmp_rc = pool_add(conn, name, 16)
         if not tmp_rc:
             LOG.error("Failed to add pool:%s" % (name))
             rc = False
