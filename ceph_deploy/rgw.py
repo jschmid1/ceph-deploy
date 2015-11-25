@@ -804,6 +804,16 @@ def rgw_prepare(args, cfg):
         except (ConfigParser.NoOptionError):
             cfg_changed = True
             cfg.set(entity, 'admin socket', admin_socket)
+        expect_rgw_dns_name = "%s:%s" % (map_entity2host[entity],map_entity2port[entity])
+        rgw_dns_name = None
+        try:
+            rgw_dns_name = cfg.get(entity,'rgw_dns_name')
+        except (ConfigParser.NoOptionError):
+            cfg_changed = True
+            cfg.set(entity, 'rgw_dns_name', expect_rgw_dns_name)
+        if rgw_dns_name != expect_rgw_dns_name:
+            cfg_changed = True
+            cfg.set(entity, 'rgw_dns_name', expect_rgw_dns_name)
         if args.civetweb == True:
             try:
                 frount_end = cfg.get(entity,'rgw frontends')
