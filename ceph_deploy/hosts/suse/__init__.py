@@ -22,8 +22,9 @@ def choose_init():
     init_mapping = { '11' : 'sysvinit', # SLE_11
         '12' : 'systemd',               # SLE_12
         '13.1' : 'systemd',             # openSUSE_13.1
+        '42.1' : 'systemd',             # openSUSE Leap
         }
-    return init_mapping.get(release, 'sysvinit')
+    return init_mapping.get(release, 'systemd')
 
 
 def service_mapping(service):
