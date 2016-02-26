@@ -158,12 +158,15 @@ def zypper_remove(conn, packages, *a, **kw):
         cmd.append(packages)
     else:
         cmd.extend(packages)
-    return remoto.process.run(
+    stdout, stderr, exitrc = remoto.process.check(
         conn,
         cmd,
         *a,
         **kw
     )
+    # exitrc is 104 when package(s) not installed.
+    if not exitrc in [0, 104]:
+        raise RuntimeError("Failed to execute command: %s" % " ".join(cmd))
 
 
 def zypper_refresh(conn):
